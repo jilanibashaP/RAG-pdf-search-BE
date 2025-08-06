@@ -50,12 +50,6 @@ const upload = multer({
   }
 });
 
-// Environment variable validation
-// console.log('Environment check:');
-// console.log('WEAVIATE_HOST:', process.env.WEAVIATE_HOST);
-// console.log('WEAVIATE_API_KEY:', process.env.WEAVIATE_API_KEY ? 'Set' : 'Not set');
-// console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set' : 'Not set');
-
 if (!process.env.WEAVIATE_API_KEY) {
   console.error('❌ WEAVIATE_API_KEY environment variable is missing!');
   process.exit(1);
@@ -414,55 +408,7 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
   }
 });
 
-// Search route
-// app.post('/search', async (req, res) => {
-//   try {
-//     console.log('Search request received');
-//     const { query, limit = 3, searchType = 'hybrid' } = req.body;
-//     const enhancedQuery = await enhanceQuery(query);
-//     console.log(`Search query: ${query}, Limit: ${limit}, Search Type: ${searchType}`);
-//     if (!query) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Query is required'
-//       });
-//     }
-
-//     let searchResults;
-
-//     // Choose search method based on searchType parameter
-//     switch (searchType) {
-//       case 'basic':
-//         searchResults = await basicSearchPDFContent(query, limit);
-//         break;
-//       case 'advanced':
-//         searchResults = await searchPDFContentAdvanced(query, limit, 0.7);
-//         break;
-//       case 'smart':
-//         searchResults = await smartSearchPDFContent(query, limit);
-//         break;
-//       case 'hybrid':
-//       default:
-//         searchResults = await searchPDFContent(query, limit, 0.7);
-//         break;
-//     }
-
-//     // can you send these result to llm as a context along with the enhanced query
-
-
-//     res.json({
-//       success: true,
-//       data: searchResults
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       error: error.message
-//     });
-//   }
-// });
-
+// Search endpoint
 app.post('/search', async (req, res) => {
   try {
     console.log('Search request received');
