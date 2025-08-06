@@ -9,3 +9,13 @@ Make sure you have your environment configured with necessary variables and depe
 ```bash
 npm install
 npm start
+
+
+
+## 📦 Features
+
+- 📄 Upload and index PDF documents  
+- 🔍 Perform semantic or keyword-based search  
+- 📊 View system statistics  
+- 📁 Browse uploaded files  
+- ❤️ Health check endpoint  
