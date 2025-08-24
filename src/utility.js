@@ -1,7 +1,12 @@
 const OpenAI = require('openai');
 const weaviate = require('weaviate-ts-client').default;
-const path = require('path');
+// const path = require('path');
 
+
+// const OpenAI = require('openai');
+const weaviateAgent = require('weaviate-client').default;
+const { QueryAgent } = require('weaviate-agents');
+const path = require('path');
 // Load environment variables with proper path resolution
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
@@ -35,6 +40,51 @@ const client = weaviate.client({
   host: process.env.WEAVIATE_HOST,
   apiKey: new weaviate.ApiKey(process.env.WEAVIATE_API_KEY),
 });
+
+const headers = {
+    // Provide your required API key(s), e.g., Cohere, OpenAI, etc. for the configured vectorizer(s)
+    "X-INFERENCE-PROVIDER-API-KEY": process.env.OPENAI_API_KEY
+};
+
+// (async () => {
+//     try {
+//         const agentClient = await weaviateAgent.connectToWeaviateCloud(process.env.WEAVIATE_URL, {
+//             authCredentials: new weaviateAgent.ApiKey(process.env.WEAVIATE_API_KEY),
+//             headers
+//         });
+
+//         // Instantiate a new agent object
+//         const qa = new QueryAgent(agentClient, {
+//             collections: [ "PDFDocument" ], // Specify the collection(s) to use
+//         });
+
+//         console.log('Weaviate agentClient and QueryAgent initialized successfully');
+
+//         // Optionally, perform a query
+//         const response = await qa.run('Assay (By HPLC)');
+//         // i want to search in the PDFDocument collection only
+
+// //         const response = await qa.run(
+// //     "I like vintage clothes and nice shoes. Recommend some of each below $60.",
+// //     {
+// //         collections: [
+// //             {
+// //                 name: "PDFDocument", // Specify the collection to search in
+// //             }
+// //         ]
+// // }
+// // );
+
+
+
+//         console.log("response===============================>", response);
+//         console.log("response display===============================>", response.display());
+
+//     } catch (error) {
+//         console.error('Error initializing Weaviate client:', error);
+//     }
+// })();
+
 
 // Generate embeddings using OpenAI
 async function generateEmbedding(text) {
@@ -77,16 +127,16 @@ async function enhanceQuery(userQuery) {
 }
 
 // Hybrid Search function - combines vector and keyword search
-async function searchPDFContent(query, limit = 5, alpha = 0.7) {
+async function searchPDFContent(query, limit = 5, alpha = 0) {
     try {
         // Enhance the query using LLM
-        const enhancedQuery = await enhanceQuery(query);
-        console.log(`Original query: "${query}"`);
-        console.log(`Enhanced query: "${enhancedQuery}"`);
+        // const enhancedQuery = await enhanceQuery(query);
+        // console.log(`Original query: "${query}"`);
+        // console.log(`Enhanced query: "${enhancedQuery}"`);
 
-        // Generate embedding for the enhanced query
-        const queryEmbedding = await generateEmbedding(enhancedQuery);
-        console.log('Generated embedding for query====>', queryEmbedding);
+        // // Generate embedding for the enhanced query
+        const queryEmbedding = await generateEmbedding(query);
+        // console.log('Generated embedding for query====>', queryEmbedding);
 
         // Hybrid search combining vector similarity and keyword matching
         const result = await client.graphql
@@ -94,26 +144,50 @@ async function searchPDFContent(query, limit = 5, alpha = 0.7) {
             .withClassName('PDFDocument')
             .withFields('content filename savedFilename pageNumber chunkIndex totalPages uploadDate filePath _additional { certainty distance score }')
             .withHybrid({
-                query: enhancedQuery,
+                query: query,
                 vector: queryEmbedding,
-                alpha: alpha, // 0 = pure keyword, 1 = pure vector, 0.7 = balanced toward vector
+                alpha: 0, // 0 = pure keyword, 1 = pure vector, 0.7 = balanced toward vector
                 fusionType: 'rankedFusion' // or 'relativeScore'
             })
             .withLimit(limit)
             .do();
 
         console.log('Hybrid search results:', JSON.stringify(result.data, null, 2));
+        console.log("esult.data.Get.PDFDocument==============================>", result.data.Get.PDFDocument);
 
-        return {
-            originalQuery: query,
-            enhancedQuery: enhancedQuery,
-            searchType: 'hybrid',
-            alpha: alpha,
-            results: result.data.Get.PDFDocument || []
-        };
-    } catch (error) {
-        throw new Error(`Hybrid search failed: ${error.message}`);
-    }
+
+
+    // const agent = new QueryAgent(
+    //   client,
+    //   {
+    //     collections: [
+    //       {
+    //         name: "PDFDocument",
+    //       },
+    //     ],
+    //   }
+    // );
+
+    // const query = `What is the assay method used for the drug?`;
+
+    // const agentResult = await agent.run(enhancedQuery);
+    // agentResult.display();
+
+
+    // console.log('Agent result:', JSON.stringify(agentResult, null, 2));
+
+    // console.log("Agent result display:==============================>", agentResult.display());
+
+    return {
+      originalQuery: query,
+      enhancedQuery: query,//enhancedQuery,
+      searchType: 'hybrid',
+      alpha: alpha,
+      results: result.data.Get.PDFDocument || []
+    };
+  } catch (error) {
+    throw new Error(`Hybrid search failed: ${error.message}`);
+  }
 }
 
 // Alternative: Separate vector and keyword searches with custom fusion
@@ -286,7 +360,7 @@ async function smartSearchPDFContent(query, limit = 5) {
 async function basicSearchPDFContent(query, limit = 5) {
   try {
     console.log('Starting search for:', query);
-    
+
     // Check if data exists first
     const dataCheck = await client.graphql
       .get()
@@ -294,11 +368,11 @@ async function basicSearchPDFContent(query, limit = 5) {
       .withFields('content filename')
       .withLimit(1)
       .do();
-    
+
     console.log('Data exists:', dataCheck.data.Get.PDFDocument?.length > 0);
-    
+
     // Enhance the query using LLM
-    const enhancedQuery = await enhanceQuery(query);
+    const enhancedQuery = query //await enhanceQuery(query);
     console.log(`Original query: "${query}"`);
     console.log(`Enhanced query: "${enhancedQuery}"`);
 
@@ -314,7 +388,7 @@ async function basicSearchPDFContent(query, limit = 5) {
       .withFields('content filename savedFilename pageNumber chunkIndex _additional { certainty }')
       .withLimit(limit)
       .do();
-    
+
     console.log('All results (no vector search):', allResults.data.Get.PDFDocument?.length || 0);
 
     // Now try with vector search

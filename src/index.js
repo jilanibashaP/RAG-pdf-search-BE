@@ -412,7 +412,7 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
 app.post('/search', async (req, res) => {
   try {
     console.log('Search request received');
-    const { query, limit = 5, searchType = 'hybrid' } = req.body;
+    const { query, limit = 10, searchType = 'hybrid' } = req.body;
 
     // Validate query input early
     if (!query || typeof query !== 'string') {
@@ -423,7 +423,7 @@ app.post('/search', async (req, res) => {
     }
 
     // Enhance the user query using your enhancement function
-    const enhancedQuery = await enhanceQuery(query);
+    const enhancedQuery = query //await enhanceQuery(query);
     console.log(`Search query: "${query}", Enhanced query: "${enhancedQuery}", Limit: ${limit}, Search Type: ${searchType}`);
 
     let searchResults;
@@ -441,7 +441,7 @@ app.post('/search', async (req, res) => {
         break;
       case 'hybrid':
       default:
-        searchResults = await searchPDFContent(enhancedQuery, limit, 0.7);
+        searchResults = await searchPDFContent(enhancedQuery, limit, 0);
         break;
     }
 

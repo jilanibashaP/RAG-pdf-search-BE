@@ -17,9 +17,10 @@
     "langchain": "^0.3.30",
     "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
-    "openai": "^5.10.2",
+    "openai": "^5.15.0",
     "pdf-parse": "^1.1.1",
-    "weaviate-client": "^3.7.0",
+    "weaviate-agents": "^0.1.4",
+    "weaviate-client": "^3.8.1",
     "weaviate-ts-client": "^2.2.0"
   },
   "description": ""
