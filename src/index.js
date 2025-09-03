@@ -423,7 +423,7 @@ app.post('/search', async (req, res) => {
     }
 
     // Enhance the user query using your enhancement function
-    const enhancedQuery = query //await enhanceQuery(query);
+    const enhancedQuery = await enhanceQuery(query);
     console.log(`Search query: "${query}", Enhanced query: "${enhancedQuery}", Limit: ${limit}, Search Type: ${searchType}`);
 
     let searchResults;
@@ -441,16 +441,18 @@ app.post('/search', async (req, res) => {
         break;
       case 'hybrid':
       default:
-        searchResults = await searchPDFContent(enhancedQuery, limit, 0);
+        searchResults = await searchPDFContent(enhancedQuery, limit, 0.7);
         break;
     }
 
-    console.log(`Search completed. Results found: ${searchResults ? searchResults.length : 0}`);
+    console.log(`Search completed. Results found: ${searchResults ? searchResults.results : 0}`);
 
     // Debug: Log search results structure
-    if (searchResults && searchResults.length > 0) {
+    if (searchResults && searchResults.results > 0) {
       console.log('Sample search result:', JSON.stringify(searchResults[0], null, 2));
     }
+
+    // here we are getting the search results each one has the file name can you separate them by file name
 
 
     // const  = fuseSearchResults(searchResults, query);
@@ -468,14 +470,35 @@ app.post('/search', async (req, res) => {
       // filePath: result.filePath
     }));
 
+    // Group search results by filename
+    const groupedResults = searchResults.results.reduce((acc, result) => {
+      const { filename, content } = result;
+      if (!acc[filename]) {
+        acc[filename] = {
+          filename,
+          savedFilename: result.savedFilename,
+          pageNumber: result.pageNumber,
+          totalPages: result.totalPages,
+          uploadDate: result.uploadDate,
+          filePath: result.filePath,
+          contents: []
+        };
+      }
+      acc[filename].contents.push(content);
+      return acc;
+    }, {});
+
+    console.log('Grouped Results: ======>', JSON.stringify(groupedResults, null, 2));
 
     // If search results exist, ask LLM to generate a response
     let llmResponse = null;
+    const summaries = {};
 
-    if (finalSearchResults && finalSearchResults.length > 0) {
+    if (finalSearchResults && finalSearchResults) {
       try {
         console.log('Sending request to OpenAI...');
-
+        /*
+//// with single response
         const completion = await openai.chat.completions.create({
           model: 'gpt-4',
           messages: [
@@ -503,17 +526,69 @@ If the answer is not found in the provided context, you must respond with: "Answ
           max_tokens: 1000
         });
 
-        console.log('OpenAI API response received');
-        console.log('Completion object:', JSON.stringify(completion, null, 2));
 
-        llmResponse = completion.choices?.[0]?.message?.content;
+        */
 
-        if (!llmResponse) {
-          console.log('LLM response is null or undefined');
-          console.log('Choices array:', completion.choices);
-        } else {
-          console.log('LLM response length:', llmResponse.length);
+
+
+        for (const [filename, fileData] of Object.entries(groupedResults)) {
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4",
+            messages: [
+              {
+                role: "system",
+                content: `You are an assistant that must answer strictly based on the content of the provided PDF document.
+Do not use any external knowledge, assumptions, paraphrasing, or inferred logic.
+Only use exact or clearly stated information from the document.
+If the answer is not explicitly present, respond with:
+"Answer not found in the provided document."
+Do not attempt to guess, expand, or provide helpful context beyond what is given.`
+              },
+              {
+                role: "user",
+                content: `Original Query: "${query}"
+Enhanced Query: "${enhancedQuery}"
+
+File: "${filename}"
+Pages: ${fileData.pageNumber} / ${fileData.totalPages}
+Uploaded: ${fileData.uploadDate}
+Path: ${fileData.filePath}
+
+File Contents:
+${fileData.contents.join("\n\n")}
+
+Your task is to answer the user's question ONLY based on this file's content. 
+If the answer is not found in this file, you must respond with: "Answer not found in the provided document."
+Provide a concise and accurate answer for this file only.`
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000
+          });
+
+          summaries[filename] = {
+            metadata: {
+              savedFilename: fileData.savedFilename,
+              pageNumber: fileData.pageNumber,
+              totalPages: fileData.totalPages,
+              uploadDate: fileData.uploadDate,
+              filePath: fileData.filePath
+            },
+            answer: completion.choices[0].message.content
+          };
         }
+
+        // console.log('OpenAI API response received');
+        // console.log('Completion object:', JSON.stringify(completion, null, 2));
+
+        // llmResponse = completion.choices?.[0]?.message?.content;
+
+        // if (!llmResponse) {
+        //   console.log('LLM response is null or undefined');
+        //   console.log('Choices array:', completion.choices);
+        // } else {
+        //   console.log('LLM response length:', llmResponse.length);
+        // }
 
       } catch (llmError) {
         console.error('Error generating response from LLM:', llmError);
@@ -539,7 +614,7 @@ If the answer is not found in the provided context, you must respond with: "Answ
         originalQuery: query,
         enhancedQuery,
         // searchResults: searchResults || [],
-        aiResponse: llmResponse,
+        aiResponse: JSON.stringify(summaries, null, 2),
         // resultsCount: searchResults ? searchResults.length : 0
       }
     });
@@ -575,7 +650,7 @@ app.get('/stats', async (req, res) => {
       .do();
 
 
-      console.log('Total uniqueResult:=====>', JSON.stringify(uniqueResult, null, 2));
+    console.log('Total uniqueResult:=====>', JSON.stringify(uniqueResult, null, 2));
 
     res.json({
       success: true,
