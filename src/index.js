@@ -550,9 +550,6 @@ Do not attempt to guess, expand, or provide helpful context beyond what is given
 Enhanced Query: "${enhancedQuery}"
 
 File: "${filename}"
-Pages: ${fileData.pageNumber} / ${fileData.totalPages}
-Uploaded: ${fileData.uploadDate}
-Path: ${fileData.filePath}
 
 File Contents:
 ${fileData.contents.join("\n\n")}
@@ -565,17 +562,19 @@ Provide a concise and accurate answer for this file only.`
             temperature: 0.7,
             max_tokens: 1000
           });
+          
+          // summaries[filename] = {
+          //   metadata: {
+          //     savedFilename: fileData.savedFilename,
+          //     pageNumber: fileData.pageNumber,
+          //     totalPages: fileData.totalPages,
+          //     uploadDate: fileData.uploadDate,
+          //     filePath: fileData.filePath
+          //   },
+          //   answer: completion.choices[0].message.content
+          // };
 
-          summaries[filename] = {
-            metadata: {
-              savedFilename: fileData.savedFilename,
-              pageNumber: fileData.pageNumber,
-              totalPages: fileData.totalPages,
-              uploadDate: fileData.uploadDate,
-              filePath: fileData.filePath
-            },
-            answer: completion.choices[0].message.content
-          };
+          summaries[filename] = completion.choices[0].message.content;
         }
 
         // console.log('OpenAI API response received');
@@ -613,9 +612,8 @@ Provide a concise and accurate answer for this file only.`
       data: {
         originalQuery: query,
         enhancedQuery,
-        // searchResults: searchResults || [],
-        aiResponse: JSON.stringify(summaries, null, 2),
-        // resultsCount: searchResults ? searchResults.length : 0
+        aiResponse: summaries, // Send as object instead of JSON string
+        resultsCount: Object.keys(summaries).length
       }
     });
 
